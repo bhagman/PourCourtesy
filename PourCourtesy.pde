@@ -4,6 +4,7 @@
 || @contribution   Brett Hagman <bhagman@wiring.org.co>
 || @contribution   Shaun Fryer <sfryer@sourcery.ca>
 || @contribution   Marc Reeve-Newson <marc.reevenewson@gmail.com>
+|| @contribution   Kate Murphy <hello@kate.io>
 ||
 || @description
 || | A drink-pouring game which uses "mind-control" to pour drinks for one
