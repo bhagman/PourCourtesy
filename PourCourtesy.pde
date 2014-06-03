@@ -24,28 +24,23 @@
 #include <Servo.h>
 #include <Brain.h>
 
-double QUALITY_THRESHOLD = 60;
-double ROUND_TOTAL_TIME = 60000;
-
-int SERVO_PIN = 9;
-const int ledPin = WLED; // handy because it's on the board.
+int QUALITY_THRESHOLD = 60;
+double ROUND_TOTAL_TIME = 5 * 1000;
 
 Servo servo;
-boolean direction;
+const int SERVO_PIN = 9;
+const int SERVO_MIN_POS = 90 - 15;
+const int SERVO_MAX_POS = 90 + 15;
+int servo_pos = SERVO_MIN_POS;
+int servo_last_pos = SERVO_MIN_POS;
+boolean servo_direction;
+int last_servo_move_millis = 0; // last time the servo moved
+int SERVO_MOVE_TIMEOUT = 500; // amount of time to wait before moving the servo
 
-// variable to store the servo position
-int pos = 0;
+// when the round started
+int round_start_millis = 0;
 
-// variable to store the servo position
-int opos = 90;
-
-// time spend in round
-int round_time = 0;
-
-int last_servo_move_millis = 0;
-
-int SERVO_MOVE_TIMEOUT = 100;
-
+const int ledPin = WLED; // handy because it's on the board.
 int ledState = LOW;
 
 Brain brainA(Serial1);
@@ -57,6 +52,9 @@ void setup() {
   // Start the hardware serial.
   Serial.begin(9600);
   servo.attach(SERVO_PIN);
+  
+  last_servo_move_millis = millis();
+  round_start_millis = millis();
 
   Serial.println("Starting: Pour Courtesy");
 }
@@ -68,9 +66,10 @@ void loop() {
   int attentionB = 0;
 
   if (brainA.update()) {
-    Serial.print("A: ");
-    Serial.println(brainA.readErrors());
+    Serial.print("Packet from A: ");
     Serial.println(brainA.readCSV());
+    Serial.println(brainA.readErrors());
+    
     qualityA = brainA.readSignalQuality();
     
     if (qualityA < QUALITY_THRESHOLD) {
@@ -98,39 +97,31 @@ void loop() {
 //    // move the spout ...
 //    pos -= 5;
 //  }
-  
-  if (opos != pos) {
-    Serial.print("pos =");
-    Serial.println(pos);
-  }
 
-  opos = pos;
-  
   int current_millis = millis();
   
-  // round is over if we tilt completely to a side or run out of time
-  if (round_time > ROUND_TOTAL_TIME) {
-    Serial.println("round over");
-    pos = 90;
-    round_time = 0;
+  if ((current_millis - round_start_millis) > ROUND_TOTAL_TIME) {
+    Serial.println("=== Round over");
+    round_start_millis = current_millis;
   }
   
-  round_time++;
-  
+  // sweep the servo back and forth around 90°
   if ((current_millis - last_servo_move_millis) > SERVO_MOVE_TIMEOUT) {
     last_servo_move_millis = current_millis;
     
-    // reset the servo if needed
-    if (pos >= 30 || pos <= 0) {
-      direction = !direction;
+    if (servo_pos >= SERVO_MAX_POS || servo_pos <= SERVO_MIN_POS) {
+      servo_direction = !servo_direction;
     }
     
-    if (direction) {
-      pos++;
+    if (servo_direction) {
+      servo_pos += 1;
     } else {
-      pos--;
+      servo_pos -= 1;
     }
     
-    servo.write(pos);
+    Serial.print("Moving servo to ");
+    Serial.println(servo_pos);
+    
+    servo.write(servo_pos);
   }
 }
