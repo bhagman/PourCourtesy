@@ -25,13 +25,14 @@
 #include <Brain.h>
 //#include <SBrain.h>
 
+const int ledPin = WLED; // handy because it's on the board.
+const int servoPin = 7;
 
 Servo myservo;  // create servo object to control a servo
 // a maximum of eight servo objects can be created
 int pos = 90;    // variable to store the servo position
 int opos = 90;    // variable to store the servo position
 int timeout = 0 ;
-const int ledPin = WLED; // handy because it's on the board.
 int ledState = LOW;
 
 // Set up the brain parser, pass it the hardware serial object you want to listen on.
@@ -51,7 +52,7 @@ void setup()
 
   // Start the hardware serial.
   Serial.begin(9600);
-  myservo.attach(9);  // attaches the servo on pin 9 to the servo object
+  myservo.attach(servoPin);  // attaches the servo on pin 9 to the servo object
 
   //Serial.println("Goodnight moon!");
 
