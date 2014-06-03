@@ -23,15 +23,14 @@
 
 #include <Servo.h>
 #include <Brain.h>
-//#include <SBrain.h>
 
+int SERVO_PIN = 9;
+const int ledPin = WLED; // handy because it's on the board.
 
 Servo myservo;  // create servo object to control a servo
-// a maximum of eight servo objects can be created
-int pos = 90;    // variable to store the servo position
+int pos = 0;    // variable to store the servo position
 int opos = 90;    // variable to store the servo position
 int timeout = 0 ;
-const int ledPin = WLED; // handy because it's on the board.
 int ledState = LOW;
 
 // Set up the brain parser, pass it the hardware serial object you want to listen on.
@@ -42,23 +41,16 @@ int ledState = LOW;
 Brain brainA(Serial);
 Brain brainB(Serial1);
 
-// possible interference between motor pwm and soft serial interrupt handling causes motor jitter
-//
-
-void setup()
-{
+void setup() {
   pinMode(ledPin, OUTPUT);
 
   // Start the hardware serial.
   Serial.begin(9600);
-  myservo.attach(9);  // attaches the servo on pin 9 to the servo object
+  myservo.attach(SERVO_PIN);
 
-  //Serial.println("Goodnight moon!");
-
-  // set the data rate for the SoftwareSerial port
-  Serial1.begin(9600);
+  Serial.println("Starting: Pour Courtesy");
 }
-/*
+
 char hex[]="0123456789abcdef";
 char *getHex(int v, int digits, char *s){
   if(s==NULL) return s; // error
@@ -71,95 +63,103 @@ char *getHex(int v, int digits, char *s){
   }
   return s;
 }
-*/
 
-void loop()
-{
-  /*
-    // read and forward raw serial data; conclusion appears to be: if we parse this, it may work
-    int c=0;
-    char s[]="00";
+void loop() {
+  int posInMessage = 0;
+  char s[]="00";
 
-    while (mySerialB.available()){
-      Serial.print(getHex(mySerialB.read(),2,s));
-      Serial.print(" ");
-      c++;
+  if (Serial.available()) {
+    Serial.print(getHex(Serial.read(),2,s));
+    Serial.print(" ");
+    posInMessage++;
+  
+    if(posInMessage > 0){
+      Serial.println("");
+      posInMessage = 0;
     }
-    if(c>0){
-        Serial.println("");
-        c=0;
-      }
-  */
+  }
+
   // Expect packets about once per second.
   // The .readCSV() function returns a string (well, char*) listing the most recent brain data, in the following format:
   // "signal strength, attention, meditation, delta, theta, low alpha, high alpha, low beta, high beta, low gamma, high gamma"
 
-  int qualityA = -1;
-  int qualityB = -1;
-  int attentionA = 0;
-  int attentionB = 0;
+//  int qualityA = -1;
+//  int qualityB = -1;
+//  int attentionA = 0;
+//  int attentionB = 0;
+//
+//  if (brainA.update())
+//  {
+//    Serial.print("A: ");
+//    Serial.println(brainA.readErrors());
+//    Serial.println(brainA.readCSV());
+//    qualityA = brainA.readSignalQuality();
+//    if (qualityA < 60) // link threshold
+//    {
+//      attentionA = brainA.readAttention();
+//    }
+//    else
+//      attentionA = 0;
+//
+//  }
+//
+//  if (brainB.update())
+//  {
+//    Serial.print("B: ");
+//    Serial.println(brainB.readErrors());
+//    Serial.println(brainB.readCSV());
+//    qualityB = brainB.readSignalQuality();
+//    if (qualityB < 60) // link threshold
+//    {
+//      attentionB = brainB.readAttention();
+//    }
+//    else
+//      attentionB = 0;
+//  }
+//
+//  // do this only if both headsets are linked? ...
+//
+//  if (attentionA > attentionB)
+//  {
+//    // move the spout ...
+//    pos += 5;
+//  }
+//  if (attentionB > attentionA)
+//  {
+//    // move the spout ...
+//    pos -= 5;
+//  }
+//
+//  if (opos != pos)
+//  {
+//    Serial.print("pos =");
+//    Serial.println(pos);
+//  }
+//  else
+//    timeout++;
+//
+//  opos = pos;
+//  // upon timeout, move back to 90 degrees
+//
+//  if (timeout > 65000 || pos < 0 || pos > 180)
+//  {
+//    pos = 90;
+//    timeout = 0;
+//  }
+  
+  doServo();
+  
+  delay(150);
+}
 
-  if (brainA.update())
-  {
-    Serial.print("A: ");
-    Serial.println(brainA.readErrors());
-    Serial.println(brainA.readCSV());
-    qualityA = brainA.readSignalQuality();
-    if (qualityA < 60) // link threshold
-    {
-      attentionA = brainA.readAttention();
-    }
-    else
-      attentionA = 0;
-
+void doServo() {
+  myservo.write(pos);
+  
+  pos++;
+  
+  if (pos > 170) {
+    pos = 0;
   }
-
-  if (brainB.update())
-  {
-    Serial.print("B: ");
-    Serial.println(brainB.readErrors());
-    Serial.println(brainB.readCSV());
-    qualityB = brainB.readSignalQuality();
-    if (qualityB < 60) // link threshold
-    {
-      attentionB = brainB.readAttention();
-    }
-    else
-      attentionB = 0;
-  }
-
-  // do this only if both headsets are linked? ...
-
-  if (attentionA > attentionB)
-  {
-    // move the spout ...
-    pos += 5;
-  }
-  if (attentionB > attentionA)
-  {
-    // move the spout ...
-    pos -= 5;
-  }
-
-  if (opos != pos)
-  {
-    Serial.print("pos =");
-    Serial.println(pos);
-  }
-  else
-    timeout++;
-
-  opos = pos;
-  // upon timeout, move back to 90 degrees
-
-  if (timeout > 65000 || pos < 0 || pos > 180)
-  {
-    pos = 90;
-    timeout = 0;
-  }
-
-  myservo.write(pos);              // tell servo to go to position in variable 'pos'
-  delay(1);
 }
 /*
   // motor sweep appears to work
