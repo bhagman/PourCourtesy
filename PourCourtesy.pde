@@ -33,6 +33,8 @@
 
 #define TIME_IN_ROUND 15
 
+#define POUR_DRINK_DELAY 10000
+
 Servo servo;
 const int SERVO_PIN = 9;
 const int SERVER_DEGREES = 25;
@@ -52,8 +54,8 @@ int GAME_STEP_TIMEOUT = 1000;
 int last_game_step_millis = 0;
 
 int QUALITY_THRESHOLD = 60;
-Brain brainA(Serial1);
-Brain brainB(Serial);
+Brain brainA(Serial);
+Brain brainB(Serial1);
 
 Adafruit_NeoPixel panel_1 = Adafruit_NeoPixel(NUM_LEDS, PANEL_1_PIN, NEO_GRB + NEO_KHZ800);
 Adafruit_NeoPixel panel_2 = Adafruit_NeoPixel(NUM_LEDS, PANEL_2_PIN, NEO_GRB + NEO_KHZ800);
@@ -62,6 +64,16 @@ uint32_t pixelOn = panel_1.Color(20, 10, 10);
 uint32_t pixelOff = panel_1.Color(0, 0, 0);
 
 int countdown = TIME_IN_ROUND;
+
+int qualityA = 200;
+int qualityB = 200;
+int attention_player_1 = 0;
+int attention_player_2 = 0;
+int score_player_1 = 0;
+int score_player_2 = 0;
+
+// should we draw to the panel this loop?
+boolean doPanelUpdate;
 
 void setup() {  
   pinMode(SERVO_PIN, OUTPUT);
@@ -83,56 +95,18 @@ void setup() {
   pinMode(2, INPUT);
 
   Serial.println("Starting: Pour Courtesy");
-  start_new_game();
+  reset_game();
 }
-
-int qualityA = 200;
-int qualityB = 200;
-int attention_player_1 = 0;
-int attention_player_2 = 0;
-int score_player_1 = 0;
-int score_player_2 = 0;
-
-// should we draw to the panel this loop?
-boolean doPanelUpdate;
 
 void loop() {
   doPanelUpdate = false;
   
   int buttonState = digitalRead(BUTTON_PIN);
   if (buttonState == 1) {
-    start_new_game();
+    reset_game();
   }
   
-  if (brainA.update()) {
-    doPanelUpdate = true;
-    Serial.print("Packet from A: ");
-    Serial.println(brainA.readCSV());
-    qualityA = brainA.readSignalQuality();
-    
-    if (qualityA < QUALITY_THRESHOLD) {
-      attention_player_1 = brainA.readAttention();
-      score_player_1 = int(8 * (float(attention_player_1) / 100));
-    } else {
-      attention_player_1 = 0;
-      score_player_1 = 0;
-    }
-  }
-  
-  if (brainB.update()) {
-    doPanelUpdate = true;
-    Serial.print("Packet from B: ");
-    Serial.println(brainB.readCSV());
-    
-    qualityB = brainB.readSignalQuality();
-    if (qualityB < QUALITY_THRESHOLD) {
-      attention_player_2 = brainB.readAttention();
-      score_player_2 = int(8 * (float(attention_player_2) / 100));
-    } else {
-      attention_player_2 = 0;
-      score_player_2 = 0;
-    }
-  }
+  try_reading_headsets();
 
   int current_millis = millis();
   
@@ -142,7 +116,7 @@ void loop() {
     countdown--;
     
     if (countdown <= 0) {
-      start_new_game();
+      reset_game();
     }
   }
   
@@ -178,16 +152,47 @@ void loop() {
   }
 }
 
-void end_game_state() {
-  Serial.println("End game, dispensing drink");
-  delay(3000);
-  Serial.println("Drink dispensed");
-  start_new_game();
+void try_reading_headsets() {
+  if (brainA.update()) {
+    doPanelUpdate = true;
+    Serial.print("Packet from A: ");
+    Serial.println(brainA.readCSV());
+    qualityA = brainA.readSignalQuality();
+    
+    if (qualityA < QUALITY_THRESHOLD) {
+      attention_player_1 = brainA.readAttention();
+      score_player_1 = int(8 * (float(attention_player_1) / 100));
+    } else {
+      attention_player_1 = 0;
+      score_player_1 = 0;
+    }
+  }
+  
+  if (brainB.update()) {
+    doPanelUpdate = true;
+    Serial.print("Packet from B: ");
+    Serial.println(brainB.readCSV());
+    
+    qualityB = brainB.readSignalQuality();
+    if (qualityB < QUALITY_THRESHOLD) {
+      attention_player_2 = brainB.readAttention();
+      score_player_2 = int(8 * (float(attention_player_2) / 100));
+    } else {
+      attention_player_2 = 0;
+      score_player_2 = 0;
+    }
+  }
 }
 
-void start_new_game() {
-  Serial.println("Starting new game");
-  
+void end_game_state() {
+  Serial.println("End game, dispensing drink");
+  delay(POUR_DRINK_DELAY);
+  Serial.println("Drink dispensed");
+  reset_game();
+}
+
+void reset_game() {
+  Serial.println("Reseting game");
   int current_millis = millis();
   last_game_step_millis = current_millis;
   
@@ -203,7 +208,7 @@ void start_new_game() {
   delay(100);
   
   update_display(countdown / 10, countdown % 10, score_player_1, score_player_2);
-  Serial.println("New game started");
+  Serial.println("Reset finished");
 }
 
 int led_digits[10][LEDS_IN_PANEL] = {
