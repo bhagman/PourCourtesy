@@ -31,7 +31,7 @@
 #define PANEL_2_PIN 7
 #define LEDS_IN_PANEL_ROW 8
 
-#define TIME_IN_ROUND 15
+#define TIME_IN_ROUND 30
 
 #define POUR_DRINK_DELAY 10000
 
@@ -60,7 +60,7 @@ Brain brainB(Serial1);
 Adafruit_NeoPixel panel_1 = Adafruit_NeoPixel(NUM_LEDS, PANEL_1_PIN, NEO_GRB + NEO_KHZ800);
 Adafruit_NeoPixel panel_2 = Adafruit_NeoPixel(NUM_LEDS, PANEL_2_PIN, NEO_GRB + NEO_KHZ800);
 
-uint32_t pixelOn = panel_1.Color(20, 10, 10);
+uint32_t pixelOn = panel_1.Color(63, 31, 00);
 uint32_t pixelOff = panel_1.Color(0, 0, 0);
 
 int countdown = TIME_IN_ROUND;
@@ -75,6 +75,11 @@ int score_player_2 = 0;
 // should we draw to the panel this loop?
 boolean doPanelUpdate;
 
+const int GAME_MODE_WAIT = 0;
+const int GAME_MODE_IN_ROUND = 1;
+
+int game_mode = GAME_MODE_IN_ROUND;
+
 void setup() {  
   pinMode(SERVO_PIN, OUTPUT);
   servo.attach(SERVO_PIN);
@@ -88,11 +93,8 @@ void setup() {
   pinMode(PANEL_1_PIN, OUTPUT);
   pinMode(PANEL_2_PIN, OUTPUT);
   panel_1.begin();
-  panel_1.show();
   panel_2.begin();
-  panel_2.show();
-  
-  pinMode(2, INPUT);
+  show_panels();
 
   Serial.println("Starting: Pour Courtesy");
   reset_game();
@@ -102,44 +104,55 @@ void loop() {
   doPanelUpdate = false;
   
   int buttonState = digitalRead(BUTTON_PIN);
-  if (buttonState == 1) {
-    reset_game();
+  if (buttonState == GAME_MODE_IN_ROUND) {
+    if (game_mode == GAME_MODE_WAIT) {
+      game_mode = GAME_MODE_IN_ROUND;
+      reset_game();
+    } else {
+      game_mode = GAME_MODE_WAIT;
+    }
   }
   
   try_reading_headsets();
-
-  int current_millis = millis();
   
-  if ((current_millis - last_game_step_millis) > GAME_STEP_TIMEOUT) {
-    doPanelUpdate = true;
-    last_game_step_millis = current_millis;
-    countdown--;
+  if (game_mode == GAME_MODE_WAIT) {
+    draw_eyes();
+    update_display(-1, -1, score_player_1, score_player_2);
+    show_panels();
+  } else {
+    int current_millis = millis();
     
-    if (countdown <= 0) {
-      reset_game();
-    }
-  }
-  
-  if ((current_millis - last_servo_move_millis) > SERVO_MOVE_TIMEOUT) {
-    // move the spout ...
-    if (attention_player_1 > attention_player_2) {
-      servo_pos += 1;
-    } else if (attention_player_2 > attention_player_1) {
-      servo_pos -= 1;
-    }
-    
-    if (servo_pos >= SERVO_MAX_POS || servo_pos <= SERVO_MIN_POS) {
-      end_game_state();
+    if ((current_millis - last_game_step_millis) > GAME_STEP_TIMEOUT) {
+      doPanelUpdate = true;
+      last_game_step_millis = current_millis;
+      countdown--;
+      
+      if (countdown <= 0) {
+        reset_game();
+      }
     }
     
-    if (servo_pos != servo_last_pos) {
-      Serial.print("Moving servo to ");
-      Serial.println(servo_pos);
-      servo.write(servo_pos);
+    if ((current_millis - last_servo_move_millis) > SERVO_MOVE_TIMEOUT) {
+      // move the spout ...
+      if (attention_player_1 > attention_player_2) {
+        servo_pos += 1;
+      } else if (attention_player_2 > attention_player_1) {
+        servo_pos -= 1;
+      }
+      
+      if (servo_pos >= SERVO_MAX_POS || servo_pos <= SERVO_MIN_POS) {
+        end_game_state();
+      }
+      
+      if (servo_pos != servo_last_pos) {
+        Serial.print("Moving servo to ");
+        Serial.println(servo_pos);
+        //servo.write(servo_pos);
+      }
+      
+      servo_last_pos = servo_pos;
+      last_servo_move_millis = current_millis;
     }
-    
-    servo_last_pos = servo_pos;
-    last_servo_move_millis = current_millis;
   }
   
   if (doPanelUpdate) {
@@ -149,6 +162,7 @@ void loop() {
     Serial.println(attention_player_2);
     
     update_display(countdown / 10, countdown % 10, score_player_1, score_player_2);
+    show_panels();
   }
 }
 
@@ -204,7 +218,9 @@ void reset_game() {
   attention_player_2 = 0;
   
   servo_pos = SERVO_CENTER;
-  servo.write(servo_pos);
+  Serial.print("Moving servo to ");
+  Serial.println(servo_pos);
+  //servo.write(servo_pos);
   delay(100);
   
   update_display(countdown / 10, countdown % 10, score_player_1, score_player_2);
@@ -317,18 +333,20 @@ int led_digits[10][LEDS_IN_PANEL] = {
 void update_display(int first_digit, int second_digit, int score_player_1, int score_player_2) {
   int *leds_on;
   
-  // digit on first panel
-  leds_on = &led_digits[first_digit][0];
-  for (int i = 0; i < LEDS_IN_PANEL; i++) {
-    if (leds_on[i] == 1) {
-      panel_1.setPixelColor(i + 1, pixelOn);
-    } else {
-      panel_1.setPixelColor(i + 1, pixelOff);
+  if (first_digit != -1) {
+      // digit on first panel
+    leds_on = &led_digits[first_digit][0];
+    for (int i = 0; i < LEDS_IN_PANEL; i++) {
+      if (leds_on[i] == 1) {
+        panel_1.setPixelColor(i + 1, pixelOn);
+      } else {
+        panel_1.setPixelColor(i + 1, pixelOff);
+      }
     }
+    
+    // total hack
+    panel_1.setPixelColor(0, pixelOff);
   }
-  
-  // total hack
-  panel_1.setPixelColor(0, pixelOff);
   
   // player one score
   for (int i = 1; i <= score_player_1; i++) {
@@ -336,13 +354,15 @@ void update_display(int first_digit, int second_digit, int score_player_1, int s
     panel_1.setPixelColor((LEDS_IN_PANEL_ROW - i) * LEDS_IN_PANEL_ROW + 1, pixelOn);
   }
   
-  // digit on second panel
-  leds_on = &led_digits[second_digit][0];
-  for (int i = 0; i < LEDS_IN_PANEL; i++) {
-    if (leds_on[i] == 1) {
-      panel_2.setPixelColor(i - 1, pixelOn);
-    } else {
-      panel_2.setPixelColor(i - 1, pixelOff);
+  if (first_digit != -1) {
+    // digit on second panel
+    leds_on = &led_digits[second_digit][0];
+    for (int i = 0; i < LEDS_IN_PANEL; i++) {
+      if (leds_on[i] == 1) {
+        panel_2.setPixelColor(i - 1, pixelOn);
+      } else {
+        panel_2.setPixelColor(i - 1, pixelOff);
+      }
     }
   }
   
@@ -351,8 +371,40 @@ void update_display(int first_digit, int second_digit, int score_player_1, int s
     panel_2.setPixelColor((LEDS_IN_PANEL_ROW - i) * LEDS_IN_PANEL_ROW + (LEDS_IN_PANEL_ROW - 2), pixelOn);
     panel_2.setPixelColor((LEDS_IN_PANEL_ROW - i) * LEDS_IN_PANEL_ROW + (LEDS_IN_PANEL_ROW - 1), pixelOn);
   }
+}
+
+void draw_eyes() {
+  int eye_pattern[LEDS_IN_PANEL] = {
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 1, 1, 0, 0, 0,
+    0, 0, 1, 0, 0, 1, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+  };
   
+  for (int i = 0; i < LEDS_IN_PANEL; i++) {
+    if (eye_pattern[i] == 1) {
+      panel_1.setPixelColor(i, pixelOn);
+    } else {
+      panel_1.setPixelColor(i, pixelOff);
+    }
+  }
+  
+  for (int i = 0; i < LEDS_IN_PANEL; i++) {
+    if (eye_pattern[i] == 1) {
+      panel_2.setPixelColor(i, pixelOn);
+    } else {
+      panel_2.setPixelColor(i, pixelOff);
+    }
+  }
+  
+  show_panels();
+}
+
+void show_panels() {
   panel_1.show();
   panel_2.show();
 }
-
