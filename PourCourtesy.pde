@@ -20,11 +20,14 @@
 */
 
 #include <Servo.h>
-#include <Brain.h>
+//#include <Brain.h>
 #include <Adafruit_NeoPixel.h>
 
 #define START_BUTTON_PIN 31
 #define RESET_BUTTON_PIN 28
+
+#define INVERT_BUTTONS 1
+
 
 #define NUM_LEDS 128
 #define LEDS_IN_PANEL 64
@@ -55,8 +58,8 @@ int GAME_STEP_TIMEOUT = 1000;
 int last_game_step_millis = 0;
 
 int QUALITY_THRESHOLD = 60;
-Brain brainA(Serial);
-Brain brainB(Serial1);
+//Brain brainA(Serial);
+//Brain brainB(Serial1);
 
 Adafruit_NeoPixel panel_1 = Adafruit_NeoPixel(NUM_LEDS, PANEL_1_PIN, NEO_GRB + NEO_KHZ800);
 Adafruit_NeoPixel panel_2 = Adafruit_NeoPixel(NUM_LEDS, PANEL_2_PIN, NEO_GRB + NEO_KHZ800);
@@ -83,10 +86,13 @@ int game_mode = GAME_MODE_IN_ROUND;
 
 void setup()
 {
+  Serial.begin(115200);
+  initHeadsets();
+
   pinMode(SERVO_PIN, OUTPUT);
   servo.attach(SERVO_PIN);
 
-  pinMode(BUTTON_PIN, INPUT);
+  pinMode(START_BUTTON_PIN, INPUT);
 
   last_servo_move_millis = millis();
   last_game_step_millis = millis();
@@ -106,7 +112,7 @@ void loop()
 {
   doPanelUpdate = false;
 
-  int buttonState = digitalRead(BUTTON_PIN);
+  int buttonState = digitalRead(START_BUTTON_PIN) ^ INVERT_BUTTONS;
   if (buttonState == GAME_MODE_IN_ROUND)
   {
     if (game_mode == GAME_MODE_WAIT)
@@ -120,7 +126,14 @@ void loop()
     }
   }
 
-  try_reading_headsets();
+  if (!readHeadsets())
+  {
+    Serial.println("Timeout waiting for headset server");
+    score_player_1 = 0;
+    score_player_2 = 0;
+    attention_player_1 = 0;
+    attention_player_2 = 0;
+  }
 
   if (game_mode == GAME_MODE_WAIT)
   {
@@ -165,7 +178,7 @@ void loop()
       {
         Serial.print("Moving servo to ");
         Serial.println(servo_pos);
-        //servo.write(servo_pos);
+        servo.write(servo_pos);
       }
 
       servo_last_pos = servo_pos;
@@ -185,46 +198,6 @@ void loop()
   }
 }
 
-void try_reading_headsets()
-{
-  if (brainA.update())
-  {
-    doPanelUpdate = true;
-    Serial.print("Packet from A: ");
-    Serial.println(brainA.readCSV());
-    qualityA = brainA.readSignalQuality();
-
-    if (qualityA < QUALITY_THRESHOLD)
-    {
-      attention_player_1 = brainA.readAttention();
-      score_player_1 = int(8 * (float(attention_player_1) / 100));
-    }
-    else
-    {
-      attention_player_1 = 0;
-      score_player_1 = 0;
-    }
-  }
-
-  if (brainB.update())
-  {
-    doPanelUpdate = true;
-    Serial.print("Packet from B: ");
-    Serial.println(brainB.readCSV());
-
-    qualityB = brainB.readSignalQuality();
-    if (qualityB < QUALITY_THRESHOLD)
-    {
-      attention_player_2 = brainB.readAttention();
-      score_player_2 = int(8 * (float(attention_player_2) / 100));
-    }
-    else
-    {
-      attention_player_2 = 0;
-      score_player_2 = 0;
-    }
-  }
-}
 
 void end_game_state()
 {
@@ -250,7 +223,7 @@ void reset_game()
   servo_pos = SERVO_CENTER;
   Serial.print("Moving servo to ");
   Serial.println(servo_pos);
-  //servo.write(servo_pos);
+  servo.write(servo_pos);
   delay(100);
 
   update_display(countdown / 10, countdown % 10, score_player_1, score_player_2);
