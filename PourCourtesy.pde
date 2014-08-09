@@ -130,7 +130,7 @@ void loop()
   if (gameState == STOPPED)
   {
 #if !DEBUG
-    draw_eyes();
+//    draw_eyes();
 #endif
     // Display the current scores for the players, just for fun.
     //updateDisplay(-1, -1, toBarValue(attentionPlayer_1), toBarValue(attentionPlayer_2));
