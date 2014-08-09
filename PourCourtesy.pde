@@ -66,6 +66,7 @@ Adafruit_NeoPixel panel_1 = Adafruit_NeoPixel(LEDS_IN_PANEL, PANEL_1_PIN, NEO_GR
 Adafruit_NeoPixel panel_2 = Adafruit_NeoPixel(LEDS_IN_PANEL, PANEL_2_PIN, NEO_GRB + NEO_KHZ800);
 
 const uint32_t pixelOn = panel_1.Color(63, 31, 00);
+const uint32_t pixelOnScore = panel_1.Color(0, 63, 70);
 const uint32_t pixelOff = panel_1.Color(0, 0, 0);
 
 int countdown = TIME_IN_ROUND;
@@ -103,8 +104,6 @@ void setup()
   serialLog.println("Starting: Pour Courtesy");
   gameState = STOPPED;
   resetGame();
-
-  updateDisplay(4, 7, toBarValue(4), toBarValue(4));
 }
 
 int startButtonState()
@@ -134,21 +133,19 @@ void loop()
     attentionPlayer_2 = 0;
   }
 
+  refreshDisplay();
+
   if (gameState == STOPPED)
   {
 #if !DEBUG
 //    draw_eyes();
 #endif
-    // Display the current scores for the players, just for fun.
-    //updateDisplay(-1, -1, toBarValue(attentionPlayer_1), toBarValue(attentionPlayer_2));
-    //showPanels();
-    refreshDisplay();
 
     if (startButtonState())
     {
       // wait until the button is released
       while (startButtonState());
-      
+
       // Now we start the game!
       countdown = TIME_IN_ROUND;
       gameState = INGAME;
@@ -162,7 +159,7 @@ void loop()
     // and check if a player has won.
 
     static uint32_t lastTimeCheck = millis();
-    
+
     if ((millis() - lastTimeCheck) > 1000)
     {
       countdown--;
@@ -184,7 +181,7 @@ void loop()
     {
       // wait until the button is released
       while (startButtonState());
-      
+
       serialLog.println("Pausing game");
       gameState = PAUSED;
       return;  // bail out
@@ -241,7 +238,7 @@ void loop()
     {
       // wait until the button is released
       while (startButtonState());
-      
+
       serialLog.println("Resuming game");
       gameState = INGAME;
       return;  // bail out
@@ -490,15 +487,15 @@ void updateDisplay(int firstDigit, int secondDigit, int bar1, int bar2)
   // player one score
   for (int i = 0; i < bar1; i++)
   {
-    panel_1.setPixelColor(i, pixelOn);
+    panel_1.setPixelColor(i, pixelOnScore);
   }
 
   // player two score
   for (int i = 0; i < bar2; i++)
   {
-    panel_2.setPixelColor(i, pixelOn);
+    panel_2.setPixelColor(i, pixelOnScore);
   }
-  
+
   showPanels();
 }
 #else
@@ -516,11 +513,11 @@ void updateDisplay(int firstDigit, int secondDigit, int bar1, int bar2)
       {
         if (leds_on[(i * 4) + j] == 1)
         {
-          panel_1.setPixelColor((i * 8) + j + 2, pixelOn);
+          panel_1.setPixelColor((i * 8) + j + 3, pixelOnScore);
         }
         else
         {
-          panel_1.setPixelColor((i * 8) + j + 2, pixelOff);
+          panel_1.setPixelColor((i * 8) + j + 3, pixelOff);
         }
       }
     }
@@ -546,11 +543,11 @@ void updateDisplay(int firstDigit, int secondDigit, int bar1, int bar2)
       {
         if (leds_on[(i * 4) + j] == 1)
         {
-          panel_2.setPixelColor((i * 8) + j + 2, pixelOn);
+          panel_2.setPixelColor((i * 8) + j + 1, pixelOnScore);
         }
         else
         {
-          panel_2.setPixelColor((i * 8) + j + 2, pixelOff);
+          panel_2.setPixelColor((i * 8) + j + 1, pixelOff);
         }
       }
     }
