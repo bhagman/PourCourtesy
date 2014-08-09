@@ -66,7 +66,7 @@ Adafruit_NeoPixel panel_1 = Adafruit_NeoPixel(LEDS_IN_PANEL, PANEL_1_PIN, NEO_GR
 Adafruit_NeoPixel panel_2 = Adafruit_NeoPixel(LEDS_IN_PANEL, PANEL_2_PIN, NEO_GRB + NEO_KHZ800);
 
 const uint32_t pixelOn = panel_1.Color(63, 31, 0);
-const uint32_t pixelOnScore = panel_1.Color(70, 0, 70);
+const uint32_t pixelOnScore = panel_1.Color(53, 21, 0);
 const uint32_t pixelOff = panel_1.Color(0, 0, 0);
 
 int countdown = TIME_IN_ROUND;
@@ -532,10 +532,10 @@ void updateDisplay(int firstDigit, int secondDigit, int bar1, int bar2)
   }
 
   // player one score
-  for (int i = 1; i <= bar1; i++)
+  for (int i = 1; i <= 8; i++)
   {
-    panel_1.setPixelColor((LEDS_IN_PANEL_ROW - i) * LEDS_IN_PANEL_ROW, pixelOnScore);
-    panel_1.setPixelColor((LEDS_IN_PANEL_ROW - i) * LEDS_IN_PANEL_ROW + 1, pixelOnScore);
+    panel_1.setPixelColor((LEDS_IN_PANEL_ROW - i) * LEDS_IN_PANEL_ROW, (i <= bar1) ? pixelOnScore : pixelOff);
+    panel_1.setPixelColor((LEDS_IN_PANEL_ROW - i) * LEDS_IN_PANEL_ROW + 1, (i <= bar1) ? pixelOnScore : pixelOff);
   }
 
   if (secondDigit != -1)
@@ -559,10 +559,10 @@ void updateDisplay(int firstDigit, int secondDigit, int bar1, int bar2)
   }
 
   // player two score
-  for (int i = 1; i <= bar2; i++)
+  for (int i = 1; i <= 8; i++)
   {
-    panel_2.setPixelColor((LEDS_IN_PANEL_ROW - i) * LEDS_IN_PANEL_ROW + (LEDS_IN_PANEL_ROW - 2), pixelOnScore);
-    panel_2.setPixelColor((LEDS_IN_PANEL_ROW - i) * LEDS_IN_PANEL_ROW + (LEDS_IN_PANEL_ROW - 1), pixelOnScore);
+    panel_2.setPixelColor((LEDS_IN_PANEL_ROW - i) * LEDS_IN_PANEL_ROW + (LEDS_IN_PANEL_ROW - 2), (i <= bar2) ? pixelOnScore : pixelOff);
+    panel_2.setPixelColor((LEDS_IN_PANEL_ROW - i) * LEDS_IN_PANEL_ROW + (LEDS_IN_PANEL_ROW - 1), (i <= bar2) ? pixelOnScore : pixelOff);
   }
 }
 #endif
