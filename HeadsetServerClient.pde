@@ -24,27 +24,16 @@
 */
 
 #define HeadsetSerial Serial1
+#define HEADSET_SERIAL_START_CHAR 0
 #define HEADSET_SERIAL_SPEED 9600
 #define HEADSET_STREAM_TIMEOUT 2000
 
-int16_t a1, b1, a2, b2;
+enum { START, B_A1, B_B1, B_A2, B_B2 } serialState;
+
 
 void initHeadsets()
 {
   HeadsetSerial.begin(HEADSET_SERIAL_SPEED);
-}
-
-bool waitForStreamByte()
-{
-  uint32_t start = millis();
-
-  while (!HeadsetSerial.available())
-  {
-    if ((millis() - start) > HEADSET_STREAM_TIMEOUT)
-      return false;
-  }
-
-  return true;
 }
 
 int mungeAlphaBetaIntoAttention(uint8_t a, uint8_t b)
@@ -69,56 +58,85 @@ bool readHeadsets()
 {
   // Get data from the headset server.
   
-  // We need to supply an attention value, and a score for each player:
-  // attention_player_1, attention_player_2
-  // score_player_1, score_player_2
+  // We need to supply an attention value:
+  // attentionPlayer_1, attentionPlayer_2
   //
   // The attention values are essentially arbitrary, and increasing (i.e.
   // a larger attention value means a player is more attentive).
   // (Previous attention values were a percentage, i.e. 0 - 100)
-  //
-  // The score values are between 0 and 8, 0 is lowest, and 8 is highest.
 
-  uint8_t c = 0;
+  static int16_t a1, b1, a2, b2;
+  static uint32_t lastByteReceived_millis = millis();
 
-  // Synchronize with headset server - '|' is the start byte
-  while (c != '|')
+  uint8_t ch = 0;
+
+  // Synchronize with headset server
+
+  while (HeadsetSerial.available() > 0)
   {
-    if (waitForStreamByte())
+    if (HeadsetSerial.available() > 1)
     {
-      c = HeadsetSerial.read();
+      Serial.print("Overflow: ");
+      Serial.print(serialState, DEC);
+      Serial.print(' ');
+      Serial.println(HeadsetSerial.available(), DEC);
     }
-    else
-      return false;
+    ch = HeadsetSerial.read();
+//Serial.print(ch, HEX);
+//Serial.print(' ');
+    if (serialState != START)
+    {
+      lastByteReceived_millis = millis();
+    }
+
+    // Resync if we get out of whack
+    if (ch == HEADSET_SERIAL_START_CHAR)
+      serialState = START;
+    
+    switch (serialState)
+    {
+      case START:
+        if (ch == HEADSET_SERIAL_START_CHAR)
+        {
+          serialState = B_A1;
+          lastByteReceived_millis = millis();
+        }
+        break;
+      case B_A1:
+        a1 = ch;
+        serialState = B_B1;
+        break;
+      case B_B1:
+        b1 = ch;
+        serialState = B_A2;
+        break;
+      case B_A2:
+        a2 = ch;
+        serialState = B_B2;
+        break;
+      case B_B2:
+        b2 = ch;
+        serialState = START;
+        attentionPlayer_1 = mungeAlphaBetaIntoAttention(a1, b1);
+        attentionPlayer_2 = mungeAlphaBetaIntoAttention(a2, b2);
+
+//Serial.println();
+
+//        Serial.print("GOT: ");
+//        Serial.print(a1, HEX);
+//        Serial.print(' ');
+//        Serial.print(b1, HEX);
+//        Serial.print(' ');
+//        Serial.print(a2, HEX);
+//        Serial.print(' ');
+//        Serial.println(b2, HEX);
+        break;
+    }
   }
-
-  // We have the start byte, now read in the values
-  if (waitForStreamByte())
-    a1 = HeadsetSerial.read();
-  else
+    
+  if ((millis() - lastByteReceived_millis) > HEADSET_STREAM_TIMEOUT)
     return false;
-
-  if (waitForStreamByte())
-    b1 = HeadsetSerial.read();
   else
-    return false;
-
-  if (waitForStreamByte())
-    a2 = HeadsetSerial.read();
-  else
-    return false;
-
-  if (waitForStreamByte())
-    b2 = HeadsetSerial.read();
-  else
-    return false;
-
-  attention_player_1 = mungeAlphaBetaIntoAttention(a1, b1);
-  score_player_1 = int(8 * (float(attention_player_1) / 100));
-
-  attention_player_2 = mungeAlphaBetaIntoAttention(a2, b2);
-  score_player_2 = int(8 * (float(attention_player_2) / 100));
-
-  return true;
+    return true;
 }
 

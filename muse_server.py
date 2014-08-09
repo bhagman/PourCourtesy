@@ -39,7 +39,7 @@ class Game:
                 
                     if time_diff >= serial_wait_time_s:
                         print "HERE"
-                        serial_conn.write("|")
+                        serial_conn.write(chr(0))
                         for player in self.players:
                             serial_conn.write(player.serial_alpha())
                             serial_conn.write(player.serial_beta())
@@ -69,17 +69,21 @@ class Player:
         self.beta[0], self.beta[1], self.beta[2], self.beta[3] = args
 
     def serial_alpha(self):
-        result = chr(0)
+        result = chr(1)
         try:
             result = chr(int((float(sum(self.alpha))/4.0)*255))
+            if result == chr(0):
+                result = chr(1);
         except:
             pass
         return result
 
     def serial_beta(self):
-        result = chr(0)
+        result = chr(1)
         try:
             result = chr(int(float(sum(self.beta))/4.0*255))
+            if result == chr(0):
+                result = chr(1);
         except:
             pass
         return result

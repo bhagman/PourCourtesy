@@ -20,8 +20,9 @@
 */
 
 #include <Servo.h>
-//#include <Brain.h>
 #include <Adafruit_NeoPixel.h>
+
+#define DEBUG 1
 
 #define START_BUTTON_PIN 31
 #define RESET_BUTTON_PIN 28
@@ -35,6 +36,9 @@
 #define PANEL_2_PIN 7
 #define LEDS_IN_PANEL_ROW 8
 
+#define PANEL_REFRESH_TIME 400
+#define ATTENTION_REFRESH_TIME 10
+
 #define TIME_IN_ROUND 30
 
 #define POUR_DRINK_DELAY 10000
@@ -45,87 +49,197 @@ const int SERVO_DEGREES = 25;
 const int SERVO_CENTER = 91;
 const int SERVO_MIN_POS = SERVO_CENTER - SERVO_DEGREES;
 const int SERVO_MAX_POS = SERVO_CENTER + SERVO_DEGREES;
-int servo_pos = SERVO_CENTER;
-int servo_last_pos = SERVO_CENTER;
-boolean servo_direction;
+int servoPosition = SERVO_CENTER;
+int lastServoPosition = SERVO_CENTER;
 int last_servo_move_millis = 0; // last time the servo moved
 int SERVO_MOVE_TIMEOUT = 200; // amount of time to wait before moving the servo
 
-int servo_top_pause = 0;
-int SERVO_PAUSE_LENGTH = 50;
+//int servo_top_pause = 0;
+//int SERVO_PAUSE_LENGTH = 50;
 
 int GAME_STEP_TIMEOUT = 1000;
 int last_game_step_millis = 0;
 
-int QUALITY_THRESHOLD = 60;
-//Brain brainA(Serial);
-//Brain brainB(Serial1);
-
 Adafruit_NeoPixel panel_1 = Adafruit_NeoPixel(NUM_LEDS, PANEL_1_PIN, NEO_GRB + NEO_KHZ800);
 Adafruit_NeoPixel panel_2 = Adafruit_NeoPixel(NUM_LEDS, PANEL_2_PIN, NEO_GRB + NEO_KHZ800);
 
-uint32_t pixelOn = panel_1.Color(63, 31, 00);
-uint32_t pixelOff = panel_1.Color(0, 0, 0);
+const uint32_t pixelOn = panel_1.Color(63, 31, 00);
+const uint32_t pixelOff = panel_1.Color(0, 0, 0);
 
 int countdown = TIME_IN_ROUND;
 
-int qualityA = 200;
-int qualityB = 200;
-int attention_player_1 = 0;
-int attention_player_2 = 0;
-int score_player_1 = 0;
-int score_player_2 = 0;
+int attentionPlayer_1 = 0;
+int attentionPlayer_2 = 0;
 
-// should we draw to the panel this loop?
-boolean doPanelUpdate;
+int score = 0;  // +ve = player 1, -ve = player 2
+int microWinsPlayer_1 = 0;
+int microWinsPlayer_2 = 0;
 
-const int GAME_MODE_WAIT = 0;
-const int GAME_MODE_IN_ROUND = 1;
+uint32_t lastPanelUpdate_millis;
+uint32_t lastAttentionReading_millis;
 
-int game_mode = GAME_MODE_IN_ROUND;
+// ATTRACT is for a future attract mode... :)
+enum { INGAME, PAUSED, STOPPED, ATTRACT } gameState;
 
 void setup()
 {
   Serial.begin(115200);
   initHeadsets();
 
-  pinMode(SERVO_PIN, OUTPUT);
   servo.attach(SERVO_PIN);
 
   pinMode(START_BUTTON_PIN, INPUT);
+  pinMode(RESET_BUTTON_PIN, INPUT);
 
   last_servo_move_millis = millis();
   last_game_step_millis = millis();
 
   // setup and clear the panels
-  pinMode(PANEL_1_PIN, OUTPUT);
-  pinMode(PANEL_2_PIN, OUTPUT);
   panel_1.begin();
   panel_2.begin();
-  show_panels();
+  showPanels();
 
   Serial.println("Starting: Pour Courtesy");
-  reset_game();
+  gameState = STOPPED;
+  resetGame();
+}
+
+int startButtonState()
+{
+  return digitalRead(START_BUTTON_PIN) ^ INVERT_BUTTONS;
+}
+
+int resetButtonState()
+{
+  return digitalRead(RESET_BUTTON_PIN) ^ INVERT_BUTTONS;
+}
+
+int toBarValue(int attentionValue)
+{
+  return int(8 * (float(attentionValue) / 100));
 }
 
 void loop()
 {
-  doPanelUpdate = false;
-
-  int buttonState = digitalRead(START_BUTTON_PIN) ^ INVERT_BUTTONS;
-  if (buttonState == GAME_MODE_IN_ROUND)
+  if (!readHeadsets())
   {
-    if (game_mode == GAME_MODE_WAIT)
+    if (attentionPlayer_1 != 0 && attentionPlayer_2 != 0)
     {
-      game_mode = GAME_MODE_IN_ROUND;
-      reset_game();
+      Serial.println("Timeout waiting for headset server");
     }
-    else
-    {
-      game_mode = GAME_MODE_WAIT;
-    }
+    attentionPlayer_1 = 0;
+    attentionPlayer_2 = 0;
   }
 
+  if (gameState == STOPPED)
+  {
+#if !DEBUG
+    draw_eyes();
+#endif
+    // Display the current scores for the players, just for fun.
+    //updateDisplay(-1, -1, toBarValue(attentionPlayer_1), toBarValue(attentionPlayer_2));
+    //showPanels();
+    refreshDisplay();
+
+    if (startButtonState())
+    {
+      // wait until the button is released
+      while (startButtonState());
+      
+      // Now we start the game!
+      countdown = TIME_IN_ROUND;
+      gameState = INGAME;
+      Serial.println("Starting Game!");
+    }
+  }
+  else if (gameState == INGAME)
+  {
+    // Read attention values periodically, timer countdown,
+    // and check if a player has won.
+
+    static uint32_t lastTimeCheck = millis();
+    
+    if ((millis() - lastTimeCheck) > 1000)
+    {
+      countdown--;
+      lastTimeCheck = millis();
+      Serial.print("Countdown: ");
+      Serial.println(countdown, DEC);
+    }
+
+    if (countdown <= 0)
+    {
+      // check who won, and go crazy!
+      // TODO: score check
+      // TODO: if score == 0, and microwins are equal, select random winner!
+      // TODO: pour to the "loser"
+      Serial.println("Ran out of time!");
+      gameState = STOPPED;
+      resetGame();
+      return;
+    }
+
+    // check for Pause
+    if (startButtonState())
+    {
+      // wait until the button is released
+      while (startButtonState());
+      
+      Serial.println("Pausing game");
+      gameState = PAUSED;
+      return;  // bail out
+    }
+    else if (resetButtonState())
+    {
+      // wait until the button is released
+      while (resetButtonState());
+
+      gameState = STOPPED;
+      resetGame();
+      return;  // bail out
+    }
+
+    // TODO: tally micro wins, periodically, and control servo
+  }
+  else if (gameState == PAUSED)
+  {
+    // Just keep displaying the current attention values.
+    // TODO: display, check for start/reset
+    // check for Pause
+    if (startButtonState())
+    {
+      // wait until the button is released
+      while (startButtonState());
+      
+      Serial.println("Resuming game");
+      gameState = INGAME;
+      return;  // bail out
+    }
+    else if (resetButtonState())
+    {
+      // wait until the button is released
+      while (resetButtonState());
+
+      gameState = STOPPED;
+      resetGame();
+      return;  // bail out
+    }
+  }
+  else if (gameState == ATTRACT)
+  {
+    // oooh what can we do here?
+    gameState = STOPPED;  // for now, just bail out if we accidentally get here.
+    return;
+  }
+
+  
+
+
+
+  
+  
+
+/*
   if (!readHeadsets())
   {
     Serial.println("Timeout waiting for headset server");
@@ -138,8 +252,8 @@ void loop()
   if (game_mode == GAME_MODE_WAIT)
   {
     draw_eyes();
-    update_display(-1, -1, score_player_1, score_player_2);
-    show_panels();
+    updateDisplay(-1, -1, toBarValue(attentionPlayer_1), toBarValue(attentionPlayer_2));
+    showPanels();
   }
   else
   {
@@ -162,26 +276,26 @@ void loop()
       // move the spout ...
       if (attention_player_1 > attention_player_2)
       {
-        servo_pos += 1;
+        servoPosition += 1;
       }
       else if (attention_player_2 > attention_player_1)
       {
-        servo_pos -= 1;
+        servoPosition -= 1;
       }
 
-      if (servo_pos >= SERVO_MAX_POS || servo_pos <= SERVO_MIN_POS)
+      if (servoPosition >= SERVO_MAX_POS || servoPosition <= SERVO_MIN_POS)
       {
         end_game_state();
       }
 
-      if (servo_pos != servo_last_pos)
+      if (servoPosition != lastServoPosition)
       {
         Serial.print("Moving servo to ");
-        Serial.println(servo_pos);
-        servo.write(servo_pos);
+        Serial.println(servoPosition);
+        servo.write(servoPosition);
       }
 
-      servo_last_pos = servo_pos;
+      lastServoPosition = servoPosition;
       last_servo_move_millis = current_millis;
     }
   }
@@ -193,23 +307,28 @@ void loop()
     Serial.print("Attention P2:");
     Serial.println(attention_player_2);
 
-    update_display(countdown / 10, countdown % 10, score_player_1, score_player_2);
-    show_panels();
+    updateDisplay(countdown / 10, countdown % 10, toBarValue(attentionPlayer_1), toBarValue(attentionPlayer_2));
+    showPanels();
   }
+*/
 }
 
 
 void end_game_state()
 {
-  Serial.println("End game, dispensing drink");
+  Serial.println("TODO: End game, dispense drink");
   delay(POUR_DRINK_DELAY);
   Serial.println("Drink dispensed");
-  reset_game();
+  resetGame();
 }
 
-void reset_game()
+void resetGame()
 {
-  Serial.println("Reseting game");
+  // Resets the game.
+  // Resets the state machine, servo, display, etc.
+
+  Serial.println("Resetting game");
+
   int current_millis = millis();
   last_game_step_millis = current_millis;
 
@@ -217,16 +336,17 @@ void reset_game()
   countdown = TIME_IN_ROUND;
 
   // reset attention values
-  attention_player_1 = 0;
-  attention_player_2 = 0;
+  attentionPlayer_1 = 0;
+  attentionPlayer_2 = 0;
 
-  servo_pos = SERVO_CENTER;
+  servoPosition = SERVO_CENTER;
+
   Serial.print("Moving servo to ");
-  Serial.println(servo_pos);
-  servo.write(servo_pos);
+  Serial.println(servoPosition);
+  servo.write(servoPosition);
   delay(100);
 
-  update_display(countdown / 10, countdown % 10, score_player_1, score_player_2);
+  //updateDisplay(countdown / 10, countdown % 10, toBarValue(attentionPlayer_1), toBarValue(attentionPlayer_2));
   Serial.println("Reset finished");
 }
 
@@ -334,14 +454,63 @@ int led_digits[10][LEDS_IN_PANEL] =
   }
 };
 
-void update_display(int first_digit, int second_digit, int score_player_1, int score_player_2)
+void refreshDisplay()
+{
+  if ((millis() - lastPanelUpdate_millis) > PANEL_REFRESH_TIME)
+  {
+    if (gameState == INGAME || gameState == PAUSED)
+      updateDisplay(countdown / 10, countdown % 10, toBarValue(attentionPlayer_1), toBarValue(attentionPlayer_2));
+    else
+      updateDisplay(-1, -1, toBarValue(attentionPlayer_1), toBarValue(attentionPlayer_2));
+    showPanels();
+    lastPanelUpdate_millis = millis();
+  }
+}
+
+
+#if DEBUG
+void updateDisplay(int firstDigit, int secondDigit, int bar1, int bar2)
+{
+  if (gameState == INGAME)
+  {
+    Serial.print("Score: ");
+    Serial.println(score, DEC);
+    Serial.print("micro wins: ");
+    Serial.print(microWinsPlayer_1, DEC);
+    Serial.print(' ');
+    Serial.println(microWinsPlayer_2, DEC);
+  }
+
+  // clear the bars
+  for (int i = 0; i < 8; i++)
+  {
+    panel_1.setPixelColor(i, 0);
+    panel_2.setPixelColor(i, 0);
+  }
+
+  // player one score
+  for (int i = 0; i < bar1; i++)
+  {
+    panel_1.setPixelColor(i, pixelOn);
+  }
+
+  // player two score
+  for (int i = 0; i < bar2; i++)
+  {
+    panel_2.setPixelColor(i, pixelOn);
+  }
+  
+  showPanels();
+}
+#else
+void updateDisplay(int firstDigit, int secondDigit, int bar1, int bar2)
 {
   int *leds_on;
 
-  if (first_digit != -1)
+  if (firstDigit != -1)
   {
     // digit on first panel
-    leds_on = &led_digits[first_digit][0];
+    leds_on = &led_digits[firstDigit][0];
     for (int i = 0; i < LEDS_IN_PANEL; i++)
     {
       if (leds_on[i] == 1)
@@ -359,16 +528,16 @@ void update_display(int first_digit, int second_digit, int score_player_1, int s
   }
 
   // player one score
-  for (int i = 1; i <= score_player_1; i++)
+  for (int i = 1; i <= bar1; i++)
   {
     panel_1.setPixelColor((LEDS_IN_PANEL_ROW - i) * LEDS_IN_PANEL_ROW, pixelOn);
     panel_1.setPixelColor((LEDS_IN_PANEL_ROW - i) * LEDS_IN_PANEL_ROW + 1, pixelOn);
   }
 
-  if (first_digit != -1)
+  if (secondDigit != -1)
   {
     // digit on second panel
-    leds_on = &led_digits[second_digit][0];
+    leds_on = &led_digits[secondDigit][0];
     for (int i = 0; i < LEDS_IN_PANEL; i++)
     {
       if (leds_on[i] == 1)
@@ -383,12 +552,13 @@ void update_display(int first_digit, int second_digit, int score_player_1, int s
   }
 
   // player two score
-  for (int i = 1; i <= score_player_2; i++)
+  for (int i = 1; i <= bar2; i++)
   {
     panel_2.setPixelColor((LEDS_IN_PANEL_ROW - i) * LEDS_IN_PANEL_ROW + (LEDS_IN_PANEL_ROW - 2), pixelOn);
     panel_2.setPixelColor((LEDS_IN_PANEL_ROW - i) * LEDS_IN_PANEL_ROW + (LEDS_IN_PANEL_ROW - 1), pixelOn);
   }
 }
+#endif
 
 void draw_eyes()
 {
@@ -428,12 +598,15 @@ void draw_eyes()
     }
   }
 
-  show_panels();
+  showPanels();
 }
 
-void show_panels()
+void showPanels()
 {
+  // Detach the servo, to eliminate jitter.
+  servo.detach();
   panel_1.show();
   panel_2.show();
+  servo.attach(SERVO_PIN);
 }
 
