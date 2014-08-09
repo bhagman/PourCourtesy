@@ -65,8 +65,8 @@ int lastServoPosition = SERVO_CENTER;
 Adafruit_NeoPixel panel_1 = Adafruit_NeoPixel(LEDS_IN_PANEL, PANEL_1_PIN, NEO_GRB + NEO_KHZ800);
 Adafruit_NeoPixel panel_2 = Adafruit_NeoPixel(LEDS_IN_PANEL, PANEL_2_PIN, NEO_GRB + NEO_KHZ800);
 
-const uint32_t pixelOn = panel_1.Color(63, 31, 00);
-const uint32_t pixelOnScore = panel_1.Color(0, 63, 70);
+const uint32_t pixelOn = panel_1.Color(63, 31, 0);
+const uint32_t pixelOnScore = panel_1.Color(70, 0, 70);
 const uint32_t pixelOff = panel_1.Color(0, 0, 0);
 
 int countdown = TIME_IN_ROUND;
@@ -172,6 +172,8 @@ void loop()
     {
       serialLog.println("Ran out of time!");
       gameState = STOPPED;
+      updateDisplay(0, 0, toBarValue(attentionPlayer_1), toBarValue(attentionPlayer_2));
+      showPanels();
       endGame();
       return;
     }
@@ -334,6 +336,9 @@ void resetGame()
 
   // reset countdown
   countdown = TIME_IN_ROUND;
+
+  updateDisplay(countdown / 10, countdown % 10, toBarValue(attentionPlayer_1), toBarValue(attentionPlayer_2));
+  showPanels();
 
   servoPosition = SERVO_CENTER;
   lastServoPosition = SERVO_CENTER;
@@ -513,11 +518,11 @@ void updateDisplay(int firstDigit, int secondDigit, int bar1, int bar2)
       {
         if (leds_on[(i * 4) + j] == 1)
         {
-          panel_1.setPixelColor((i * 8) + j + 3, pixelOnScore);
+          panel_1.setPixelColor((i * 8) + j + 4, pixelOn);
         }
         else
         {
-          panel_1.setPixelColor((i * 8) + j + 3, pixelOff);
+          panel_1.setPixelColor((i * 8) + j + 4, pixelOff);
         }
       }
     }
@@ -529,8 +534,8 @@ void updateDisplay(int firstDigit, int secondDigit, int bar1, int bar2)
   // player one score
   for (int i = 1; i <= bar1; i++)
   {
-    panel_1.setPixelColor((LEDS_IN_PANEL_ROW - i) * LEDS_IN_PANEL_ROW, pixelOn);
-    panel_1.setPixelColor((LEDS_IN_PANEL_ROW - i) * LEDS_IN_PANEL_ROW + 1, pixelOn);
+    panel_1.setPixelColor((LEDS_IN_PANEL_ROW - i) * LEDS_IN_PANEL_ROW, pixelOnScore);
+    panel_1.setPixelColor((LEDS_IN_PANEL_ROW - i) * LEDS_IN_PANEL_ROW + 1, pixelOnScore);
   }
 
   if (secondDigit != -1)
@@ -543,11 +548,11 @@ void updateDisplay(int firstDigit, int secondDigit, int bar1, int bar2)
       {
         if (leds_on[(i * 4) + j] == 1)
         {
-          panel_2.setPixelColor((i * 8) + j + 1, pixelOnScore);
+          panel_2.setPixelColor((i * 8) + j + 0, pixelOn);
         }
         else
         {
-          panel_2.setPixelColor((i * 8) + j + 1, pixelOff);
+          panel_2.setPixelColor((i * 8) + j + 0, pixelOff);
         }
       }
     }
@@ -556,8 +561,8 @@ void updateDisplay(int firstDigit, int secondDigit, int bar1, int bar2)
   // player two score
   for (int i = 1; i <= bar2; i++)
   {
-    panel_2.setPixelColor((LEDS_IN_PANEL_ROW - i) * LEDS_IN_PANEL_ROW + (LEDS_IN_PANEL_ROW - 2), pixelOn);
-    panel_2.setPixelColor((LEDS_IN_PANEL_ROW - i) * LEDS_IN_PANEL_ROW + (LEDS_IN_PANEL_ROW - 1), pixelOn);
+    panel_2.setPixelColor((LEDS_IN_PANEL_ROW - i) * LEDS_IN_PANEL_ROW + (LEDS_IN_PANEL_ROW - 2), pixelOnScore);
+    panel_2.setPixelColor((LEDS_IN_PANEL_ROW - i) * LEDS_IN_PANEL_ROW + (LEDS_IN_PANEL_ROW - 1), pixelOnScore);
   }
 }
 #endif
