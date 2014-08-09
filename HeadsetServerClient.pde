@@ -23,7 +23,7 @@
 || @target Wiring S
 */
 
-#define HeadsetSerial Serial1
+#define HeadsetSerial Serial
 #define HEADSET_SERIAL_START_CHAR 0
 #define HEADSET_SERIAL_SPEED 9600
 #define HEADSET_STREAM_TIMEOUT 2000
@@ -45,7 +45,8 @@ int mungeAlphaBetaIntoAttention(uint8_t a, uint8_t b)
   // a is between 0 and 255?
   // b is between 0 and 255?
 
-  int c = a - b;
+  int c = a;
+
   if (c < 0)
     c = 0;
   if (c > 255)
@@ -74,13 +75,13 @@ bool readHeadsets()
 
   while (HeadsetSerial.available() > 0)
   {
-    if (HeadsetSerial.available() > 1)
-    {
-      Serial.print("Overflow: ");
-      Serial.print(serialState, DEC);
-      Serial.print(' ');
-      Serial.println(HeadsetSerial.available(), DEC);
-    }
+//    if (HeadsetSerial.available() > 1)
+//    {
+//      Serial.print("Overflow: ");
+//      Serial.print(serialState, DEC);
+//      Serial.print(' ');
+//      Serial.println(HeadsetSerial.available(), DEC);
+//    }
     ch = HeadsetSerial.read();
 //Serial.print(ch, HEX);
 //Serial.print(' ');
