@@ -104,7 +104,7 @@ void setup()
   gameState = STOPPED;
   resetGame();
 
-  updateDisplay(0, 0, toBarValue(4), toBarValue(4));
+  updateDisplay(4, 7, toBarValue(4), toBarValue(4));
 }
 
 int startButtonState()
@@ -516,11 +516,11 @@ void updateDisplay(int firstDigit, int secondDigit, int bar1, int bar2)
       {
         if (leds_on[(i * 4) + j] == 1)
         {
-          panel_1.setPixelColor(2 + (i * 4) + j, pixelOn);
+          panel_1.setPixelColor((i * 8) + j + 2, pixelOn);
         }
         else
         {
-          panel_1.setPixelColor(2 + (i * 4) + j, pixelOff);
+          panel_1.setPixelColor((i * 8) + j + 2, pixelOff);
         }
       }
     }
@@ -546,11 +546,11 @@ void updateDisplay(int firstDigit, int secondDigit, int bar1, int bar2)
       {
         if (leds_on[(i * 4) + j] == 1)
         {
-          panel_2.setPixelColor(2 + (i * 4) + j, pixelOn);
+          panel_2.setPixelColor((i * 8) + j + 2, pixelOn);
         }
         else
         {
-          panel_2.setPixelColor(2 + (i * 4) + j, pixelOff);
+          panel_2.setPixelColor((i * 8) + j + 2, pixelOff);
         }
       }
     }
