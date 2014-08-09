@@ -38,21 +38,24 @@
 #define LEDS_IN_PANEL_ROW 8
 
 #define PANEL_REFRESH_TIME 1000
-#define ATTENTION_REFRESH_TIME 400
-#define POUR_DRINK_TIME 10000
+#define ATTENTION_REFRESH_TIME 1000
+#define POUR_DRINK_TIME 5000
 
 #define TIME_IN_ROUND 45
 
 #define serialLog Serial
 #define serialLogSpeed 115200
 
-#define SERVO_DEGREES 25
-#define SERVO_CENTER 90
+#define SERVO_DEGREES 14
+#define SERVO_CENTER 84
 #define SERVO_MIN_POS (SERVO_CENTER - SERVO_DEGREES)
 #define SERVO_MAX_POS (SERVO_CENTER + SERVO_DEGREES)
 
 #define PLAYER_1_WIN_SERVO_POS SERVO_MAX_POS
 #define PLAYER_2_WIN_SERVO_POS SERVO_MIN_POS
+
+#define PLAYER_1_WIN_POUR 109
+#define PLAYER_2_WIN_POUR 59
 
 Servo servo;
 int servoPosition = SERVO_CENTER;
@@ -100,6 +103,8 @@ void setup()
   serialLog.println("Starting: Pour Courtesy");
   gameState = STOPPED;
   resetGame();
+
+  updateDisplay(0, 0, toBarValue(4), toBarValue(4));
 }
 
 int startButtonState()
@@ -310,12 +315,12 @@ void endGame()
   if (winner > 0)
   {
     serialLog.println("Player 1 wins!");
-    servo.write(180);
+    servo.write(PLAYER_1_WIN_POUR);
   }
   else
   {
     serialLog.println("Player 2 wins!");
-    servo.write(0);
+    servo.write(PLAYER_2_WIN_POUR);
   }
 
   delay(POUR_DRINK_TIME);
