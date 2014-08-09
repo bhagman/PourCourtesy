@@ -516,11 +516,11 @@ void updateDisplay(int firstDigit, int secondDigit, int bar1, int bar2)
       {
         if (leds_on[(i * 4) + j] == 1)
         {
-          panel_1.setPixelColor((i * 4) + j, pixelOn);
+          panel_1.setPixelColor(2 + (i * 4) + j, pixelOn);
         }
         else
         {
-          panel_1.setPixelColor((i * 4) + j, pixelOff);
+          panel_1.setPixelColor(2 + (i * 4) + j, pixelOff);
         }
       }
     }
@@ -546,11 +546,11 @@ void updateDisplay(int firstDigit, int secondDigit, int bar1, int bar2)
       {
         if (leds_on[(i * 4) + j] == 1)
         {
-          panel_2.setPixelColor((i * 4) + j, pixelOn);
+          panel_2.setPixelColor(2 + (i * 4) + j, pixelOn);
         }
         else
         {
-          panel_2.setPixelColor((i * 4) + j, pixelOff);
+          panel_2.setPixelColor(2 + (i * 4) + j, pixelOff);
         }
       }
     }
